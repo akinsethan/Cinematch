@@ -1,15 +1,25 @@
 import type { Movie, MaturityRating } from "../types/movie";
 
 // ---------------------------------------------------------------------------
-// Config
+// Config — supports both a v3 API key (short string) and a v4 Read Access
+// Token (JWT starting with "ey"). When the value looks like a JWT we send it
+// as "Authorization: Bearer <token>" instead of the api_key query param.
 // ---------------------------------------------------------------------------
 
 const BASE_URL = "https://api.themoviedb.org/3";
-
-// TMDB free-tier public API key (v3 auth via query param)
-const API_KEY = import.meta.env.VITE_TMDB_API_KEY as string;
+const TOKEN = import.meta.env.VITE_TMDB_API_KEY as string;
 
 export const POSTER_BASE_URL = "https://image.tmdb.org/t/p/w500";
+
+const IS_BEARER = TOKEN?.startsWith("ey");
+
+function authHeaders(): HeadersInit {
+  return IS_BEARER ? { Authorization: `Bearer ${TOKEN}` } : {};
+}
+
+function authParam(): Record<string, string> {
+  return IS_BEARER ? {} : { api_key: TOKEN };
+}
 
 // ---------------------------------------------------------------------------
 // In-memory cache
@@ -31,13 +41,14 @@ function getCacheKey(path: string, params: Record<string, string>): string {
 
 async function fetchWithRetry(
   url: string,
+  options: RequestInit = {},
   retries = 3,
   delayMs = 500
 ): Promise<Response> {
-  const res = await fetch(url);
+  const res = await fetch(url, options);
   if (res.status === 429 && retries > 0) {
     await new Promise((r) => setTimeout(r, delayMs));
-    return fetchWithRetry(url, retries - 1, delayMs * 2);
+    return fetchWithRetry(url, options, retries - 1, delayMs * 2);
   }
   return res;
 }
@@ -94,7 +105,6 @@ function certToMaturity(cert: string): MaturityRating {
   if (MATURE_CERTS.has(cert)) return "Mature";
   if (TEEN_CERTS.has(cert)) return "Teen";
   if (FAMILY_CERTS.has(cert)) return "Family";
-  // Unknown cert — default Family and warn
   console.warn(`[TMDB] Unknown certification "${cert}", defaulting to Family`);
   return "Family";
 }
@@ -103,7 +113,6 @@ function extractUSCertification(details: TmdbMovieDetails): MaturityRating {
   const releaseDates = details.release_dates?.results ?? [];
   const usEntry = releaseDates.find((r) => r.iso_3166_1 === "US");
   if (!usEntry) {
-    // No US rating at all — default to Family as per spec
     if (details.title) {
       console.warn(
         `[TMDB] No US certification for "${details.title}", defaulting to Family`
@@ -111,7 +120,6 @@ function extractUSCertification(details: TmdbMovieDetails): MaturityRating {
     }
     return "Family";
   }
-  // Pick the theatrical release (type 3) first, then any non-empty cert
   const theatrical = usEntry.release_dates.find(
     (rd) => rd.type === 3 && rd.certification
   );
@@ -139,8 +147,10 @@ async function fetchGenreMap(): Promise<Map<number, string>> {
     genreMapCache = cache.get(cacheKey) as Map<number, string>;
     return genreMapCache;
   }
-  const url = `${BASE_URL}/genre/movie/list?api_key=${API_KEY}&language=en-US`;
-  const res = await fetchWithRetry(url);
+  const params = { ...authParam(), language: "en-US" };
+  const qs = new URLSearchParams(params).toString();
+  const url = `${BASE_URL}/genre/movie/list?${qs}`;
+  const res = await fetchWithRetry(url, { headers: authHeaders() });
   if (!res.ok) throw new Error(`Genre fetch failed: ${res.status}`);
   const data: { genres: { id: number; name: string }[] } = await res.json();
   const map = new Map(data.genres.map((g) => [g.id, g.name]));
@@ -157,13 +167,13 @@ async function tmdbFetch<T>(
   path: string,
   params: Record<string, string> = {}
 ): Promise<T> {
-  const allParams = { ...params, api_key: API_KEY, language: "en-US" };
+  const allParams = { ...params, ...authParam(), language: "en-US" };
   const cacheKey = getCacheKey(path, allParams);
   if (cache.has(cacheKey)) return cache.get(cacheKey) as T;
 
   const qs = new URLSearchParams(allParams).toString();
   const url = `${BASE_URL}${path}?${qs}`;
-  const res = await fetchWithRetry(url);
+  const res = await fetchWithRetry(url, { headers: authHeaders() });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`TMDB ${path} failed ${res.status}: ${text}`);
@@ -212,10 +222,10 @@ async function detailsToMovie(
 // ---------------------------------------------------------------------------
 
 export interface DiscoverParams {
-  genreIds?: number[];      // TMDB genre IDs to filter by
-  decadeStart?: number;     // e.g. 1990
-  decadeEnd?: number;       // e.g. 1999
-  minRating?: number;       // vote_average.gte
+  genreIds?: number[];
+  decadeStart?: number;
+  decadeEnd?: number;
+  minRating?: number;
   page?: number;
 }
 
@@ -226,7 +236,6 @@ export async function discoverMovies(params: DiscoverParams = {}): Promise<Movie
     sort_by: "popularity.desc",
     include_adult: "false",
     "vote_count.gte": "100",
-    append_to_response: "release_dates",
   };
 
   if (params.genreIds && params.genreIds.length > 0) {
@@ -255,7 +264,7 @@ export async function discoverMovies(params: DiscoverParams = {}): Promise<Movie
 
   const allResults = pages.flatMap((p) => p.results);
 
-  // Fetch certification details in parallel (batch to avoid hammering the API)
+  // Fetch certification details in batches
   const BATCH = 20;
   const movies: Movie[] = [];
 
@@ -267,7 +276,6 @@ export async function discoverMovies(params: DiscoverParams = {}): Promise<Movie
           append_to_response: "release_dates",
         }).then((d) => ({
           ...d,
-          // Preserve genre_ids from list result (details use genres array)
           genre_ids: r.genre_ids,
         }))
       )
@@ -301,7 +309,10 @@ export async function getWatchProviders(
 
   try {
     const data = await tmdbFetch<{
-      results: Record<string, { flatrate?: WatchProvider[]; rent?: WatchProvider[]; buy?: WatchProvider[] }>;
+      results: Record<
+        string,
+        { flatrate?: WatchProvider[]; rent?: WatchProvider[]; buy?: WatchProvider[] }
+      >;
     }>(`/movie/${movieId}/watch/providers`);
 
     const us = data.results?.US;
@@ -310,7 +321,6 @@ export async function getWatchProviders(
       ...(us?.rent ?? []),
       ...(us?.buy ?? []),
     ];
-    // Deduplicate by provider_id
     const seen = new Set<number>();
     const unique = providers.filter((p) => {
       if (seen.has(p.provider_id)) return false;
