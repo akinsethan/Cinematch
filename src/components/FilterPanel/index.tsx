@@ -1,5 +1,6 @@
 import type { Filters } from "../../types/movie";
 import { DEFAULT_FILTERS } from "../../types/movie";
+import { MoodSelector } from "./MoodSelector";
 import { GenreMultiSelect } from "./GenreMultiSelect";
 import { MaturitySelect } from "./MaturitySelect";
 import { DecadeSelect } from "./DecadeSelect";
@@ -34,6 +35,10 @@ export function FilterPanel({ filters, onChange, resultCount, isLoading }: Props
           </button>
         )}
       </div>
+
+      <MoodSelector filters={filters} onChange={onChange} />
+
+      <div className="border-t border-gray-800" />
 
       <GenreMultiSelect
         selected={filters.genres}
