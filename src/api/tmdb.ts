@@ -329,3 +329,30 @@ export async function getWatchProviders(
     return [];
   }
 }
+
+// ---------------------------------------------------------------------------
+// Trailers
+// ---------------------------------------------------------------------------
+
+// Returns the YouTube key for the first official Trailer, or null if none.
+export async function getTrailerKey(movieId: number): Promise<string | null> {
+  const cacheKey = `trailer_${movieId}`;
+  if (cache.has(cacheKey)) return cache.get(cacheKey) as string | null;
+
+  try {
+    const data = await tmdbFetch<{
+      results: { type: string; site: string; key: string; official: boolean }[];
+    }>(`/movie/${movieId}/videos`);
+
+    const trailer =
+      data.results.find((v) => v.type === "Trailer" && v.site === "YouTube" && v.official) ??
+      data.results.find((v) => v.type === "Trailer" && v.site === "YouTube") ??
+      null;
+
+    const key = trailer?.key ?? null;
+    cache.set(cacheKey, key);
+    return key;
+  } catch {
+    return null;
+  }
+}

@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { ScoredMovie } from "../../types/movie";
-import { POSTER_BASE_URL } from "../../api/tmdb";
+import { POSTER_BASE_URL, getTrailerKey } from "../../api/tmdb";
 import { MaturityBadge } from "./MaturityBadge";
 import { RatingBadge } from "./RatingBadge";
 import { ScoreBreakdown } from "./ScoreBreakdown";
 import { StreamingBadges } from "./StreamingBadges";
 import { WatchlistButton } from "../WatchlistButton";
+import { TrailerModal } from "../TrailerModal";
+import { Toast } from "../Toast";
 
 interface Props {
   movie: ScoredMovie;
@@ -25,6 +27,26 @@ export function MovieCard({
   compareDisabled,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [trailerKey, setTrailerKey] = useState<string | null>(null);
+  const [trailerLoading, setTrailerLoading] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+
+  const handleTrailerClick = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (trailerLoading) return;
+    setTrailerLoading(true);
+    try {
+      const key = await getTrailerKey(movie.id);
+      if (key) {
+        setTrailerKey(key);
+      } else {
+        setShowToast(true);
+      }
+    } finally {
+      setTrailerLoading(false);
+    }
+  }, [movie.id, trailerLoading]);
+
   const posterUrl = movie.poster_path
     ? `${POSTER_BASE_URL}${movie.poster_path}`
     : null;
@@ -110,16 +132,36 @@ export function MovieCard({
           </div>
         )}
 
-        {/* Compare toggle */}
-        <button
-          onClick={() => onToggleCompare(movie)}
-          disabled={compareDisabled && !isSelected}
-          className={`mt-auto pt-1.5 text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-            isSelected ? "text-violet-400" : "text-gray-500 hover:text-gray-300"
-          }`}
-        >
-          {isSelected ? "✓ Comparing" : "+ Compare"}
-        </button>
+        {/* Bottom row: trailer + compare */}
+        <div className="mt-auto pt-1.5 flex items-center justify-between gap-2">
+          <button
+            onClick={handleTrailerClick}
+            disabled={trailerLoading}
+            className="flex items-center gap-1 text-xs font-medium text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          >
+            {trailerLoading ? (
+              <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+            ) : (
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7L8 5z" />
+              </svg>
+            )}
+            Trailer
+          </button>
+
+          <button
+            onClick={() => onToggleCompare(movie)}
+            disabled={compareDisabled && !isSelected}
+            className={`text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+              isSelected ? "text-violet-400" : "text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {isSelected ? "✓ Comparing" : "+ Compare"}
+          </button>
+        </div>
       </div>
 
       {/* Expandable breakdown — StreamingBadges only mounts here, so the
@@ -134,6 +176,23 @@ export function MovieCard({
           <StreamingBadges movieId={movie.id} />
           <ScoreBreakdown movie={movie} />
         </div>
+      )}
+
+      {/* Trailer modal — portalled to document.body */}
+      {trailerKey && (
+        <TrailerModal
+          trailerKey={trailerKey}
+          title={movie.title}
+          onClose={() => setTrailerKey(null)}
+        />
+      )}
+
+      {/* No-trailer toast — portalled to document.body */}
+      {showToast && (
+        <Toast
+          message="No trailer available"
+          onDismiss={() => setShowToast(false)}
+        />
       )}
     </article>
   );
