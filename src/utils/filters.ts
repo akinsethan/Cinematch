@@ -48,7 +48,7 @@ export function applyClientFilters(
       break;
   }
 
-  return result;
+  return result.slice(0, 20);
 }
 
 export function decadeToRange(decade: string): [number, number] | null {

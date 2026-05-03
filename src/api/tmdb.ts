@@ -91,7 +91,6 @@ interface TmdbMovieDetails extends TmdbMovieResult {
 interface TmdbPage {
   results: TmdbMovieResult[];
   total_pages: number;
-  total_results: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -227,16 +226,9 @@ export interface DiscoverParams {
   decadeStart?: number;
   decadeEnd?: number;
   minRating?: number;
-  page?: number;
 }
 
-export interface DiscoverResult {
-  movies: Movie[];
-  hasMore: boolean;
-  totalResults: number;
-}
-
-export async function discoverMovies(params: DiscoverParams = {}): Promise<DiscoverResult> {
+export async function discoverMovies(params: DiscoverParams = {}): Promise<Movie[]> {
   const genreMap = await fetchGenreMap();
 
   const queryParams: Record<string, string> = {
@@ -258,24 +250,18 @@ export async function discoverMovies(params: DiscoverParams = {}): Promise<Disco
     queryParams["vote_average.gte"] = String(params.minRating);
   }
 
-  // Fetch 3 TMDB pages per "load" to give the ranking algorithm enough material
-  const pageCount = 3;
-  const batchStart = (params.page ?? 0) * pageCount; // 0-based TMDB page offset
-  const pages = await Promise.all(
-    Array.from({ length: pageCount }, (_, i) =>
-      tmdbFetch<TmdbPage>("/discover/movie", {
-        ...queryParams,
-        page: String(batchStart + i + 1),
-      })
-    )
+  // Fetch pages 1, 2 and 3 simultaneously for speed
+  const [page1, page2, page3] = await Promise.all([
+    tmdbFetch<TmdbPage>("/discover/movie", { ...queryParams, page: "1" }),
+    tmdbFetch<TmdbPage>("/discover/movie", { ...queryParams, page: "2" }),
+    tmdbFetch<TmdbPage>("/discover/movie", { ...queryParams, page: "3" }),
+  ]);
+
+  // Combine all results and deduplicate by movie id (up to ~60 candidates)
+  const seen = new Set<number>();
+  const allResults = [...page1.results, ...page2.results, ...page3.results].filter(
+    (r) => { if (seen.has(r.id)) return false; seen.add(r.id); return true; }
   );
-
-  const totalPages = pages[0].total_pages;
-  const totalResults = pages[0].total_results;
-  const lastFetchedPage = batchStart + pageCount;
-  const hasMore = lastFetchedPage < totalPages;
-
-  const allResults = pages.flatMap((p) => p.results);
 
   // Fetch certification details in batches
   const BATCH = 20;
@@ -301,7 +287,7 @@ export async function discoverMovies(params: DiscoverParams = {}): Promise<Disco
     }
   }
 
-  return { movies, hasMore, totalResults };
+  return movies;
 }
 
 // ---------------------------------------------------------------------------
