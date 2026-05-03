@@ -1,18 +1,20 @@
-import { useState, useEffect, useRef } from "react";
-import type { ScoredMovie, Filters } from "../types/movie";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import type { Movie, ScoredMovie, Filters } from "../types/movie";
 import { GENRE_TO_TMDB_ID } from "../types/movie";
 import { discoverMovies, type DiscoverParams } from "../api/tmdb";
 import { rankMovies } from "../utils/scoring";
-import { applyClientFilters } from "../utils/filters";
-import { decadeToRange } from "../utils/filters";
+import { applyClientFilters, decadeToRange } from "../utils/filters";
 
-interface UseMoviesResult {
+export interface UseMoviesResult {
   movies: ScoredMovie[];
   isLoading: boolean;
+  isLoadingMore: boolean;
   error: string | null;
+  hasMore: boolean;
+  totalResults: number;
+  loadMore: () => void;
 }
 
-// Build TMDB discover params from active filters (server-side filtering)
 function buildDiscoverParams(filters: Filters): DiscoverParams {
   const params: DiscoverParams = {};
 
@@ -33,7 +35,8 @@ function buildDiscoverParams(filters: Filters): DiscoverParams {
   return params;
 }
 
-// Stable key to avoid redundant fetches when only sort/maturity change
+// Stable string key — only changes when server-side params change.
+// Sort/maturity changes are client-side only and must NOT trigger a re-fetch.
 function discoverKey(params: DiscoverParams): string {
   return JSON.stringify({
     genreIds: params.genreIds?.slice().sort(),
@@ -44,58 +47,89 @@ function discoverKey(params: DiscoverParams): string {
 }
 
 export function useMovies(filters: Filters): UseMoviesResult {
-  const [movies, setMovies] = useState<ScoredMovie[]>([]);
+  // Raw accumulated movies for the current filter key (all pages fetched so far)
+  const [rawMovies, setRawMovies] = useState<Movie[]>([]);
+  const [nextPage, setNextPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalResults, setTotalResults] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Cache raw movies per discover key so client-side filter changes are instant
-  const rawCache = useRef<Map<string, ReturnType<typeof rankMovies>>>(new Map());
-  const lastKeyRef = useRef<string>("");
+  // Track which key was last fetched so loadMore uses the right params
+  const activeKeyRef = useRef<string>("");
+  const activeParamsRef = useRef<DiscoverParams>({});
 
+  const discoverParams = buildDiscoverParams(filters);
+  const key = discoverKey(discoverParams);
+
+  // Re-fetch from page 0 whenever server-side filter params change
   useEffect(() => {
-    const discoverParams = buildDiscoverParams(filters);
-    const key = discoverKey(discoverParams);
+    if (key === activeKeyRef.current) return; // sort/maturity only — skip
 
-    // If we have a cached raw result for this key, skip fetching
-    if (rawCache.current.has(key)) {
-      const ranked = rawCache.current.get(key)!;
-      const filtered = applyClientFilters(ranked, filters);
-      setMovies(filtered);
-      setIsLoading(false);
-      return;
-    }
+    activeKeyRef.current = key;
+    activeParamsRef.current = discoverParams;
 
-    // Only show loading spinner when the discover params actually change
-    if (key !== lastKeyRef.current) {
-      setIsLoading(true);
-      setError(null);
-      lastKeyRef.current = key;
-    }
+    setIsLoading(true);
+    setError(null);
+    setRawMovies([]);
+    setHasMore(false);
+    setTotalResults(0);
+    setNextPage(1);
 
     let cancelled = false;
 
-    discoverMovies(discoverParams)
-      .then((raw) => {
+    discoverMovies({ ...discoverParams, page: 0 })
+      .then(({ movies: raw, hasMore: more, totalResults: total }) => {
         if (cancelled) return;
-        const ranked = rankMovies(raw, filters.genres);
-        rawCache.current.set(key, ranked);
-        const filtered = applyClientFilters(ranked, filters);
-        setMovies(filtered);
+        setRawMovies(raw);
+        setHasMore(more);
+        setTotalResults(total);
         setIsLoading(false);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
         console.error("[useMovies] fetch error:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to load movies."
-        );
+        setError(err instanceof Error ? err.message : "Failed to load movies.");
         setIsLoading(false);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [filters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
-  return { movies, isLoading, error };
+  // Derive displayed movies: rank ALL accumulated raw movies, then apply
+  // client-side filters. Recomputes instantly when sort/maturity changes
+  // without any network request.
+  const movies = useMemo(() => {
+    const ranked = rankMovies(rawMovies, filters.genres);
+    return applyClientFilters(ranked, filters);
+  }, [rawMovies, filters]);
+
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+
+    try {
+      const { movies: newRaw, hasMore: more, totalResults: total } =
+        await discoverMovies({ ...activeParamsRef.current, page: nextPage });
+
+      setRawMovies((prev) => {
+        const seen = new Set(prev.map((m) => m.id));
+        return [...prev, ...newRaw.filter((m) => !seen.has(m.id))];
+      });
+      setHasMore(more);
+      setTotalResults(total);
+      setNextPage((p) => p + 1);
+    } catch (err) {
+      // Load-more errors are non-fatal — existing results stay visible
+      console.error("[useMovies] loadMore error:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore, hasMore, nextPage]);
+
+  return { movies, isLoading, isLoadingMore, error, hasMore, totalResults, loadMore };
 }

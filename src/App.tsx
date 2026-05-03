@@ -34,7 +34,7 @@ type Tab = "discover" | "watchlist";
 function AppInner() {
   const [activeTab, setActiveTab] = useState<Tab>("discover");
   const [filters, setFilters] = useFilters();
-  const { movies, isLoading, error } = useMovies(filters);
+  const { movies, isLoading, isLoadingMore, error, hasMore, totalResults, loadMore } = useMovies(filters);
 
   // Watchlist
   const [watchlist, setWatchlist] = useState<ScoredMovie[]>(loadWatchlist);
@@ -196,6 +196,13 @@ function AppInner() {
                   compareIds={compareIds}
                   onToggleCompare={toggleCompare}
                 />
+                <LoadMoreRow
+                  movieCount={movies.length}
+                  totalResults={totalResults}
+                  hasMore={hasMore}
+                  isLoadingMore={isLoadingMore}
+                  onLoadMore={loadMore}
+                />
               </>
             )}
           </div>
@@ -319,6 +326,56 @@ function TabButton({
         </span>
       )}
     </button>
+  );
+}
+
+function LoadMoreRow({
+  movieCount,
+  totalResults,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
+}: {
+  movieCount: number;
+  totalResults: number;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  onLoadMore: () => void;
+}) {
+  return (
+    <div className="mt-8 flex flex-col items-center gap-4">
+      {totalResults > 0 && (
+        <p className="text-sm text-gray-500">
+          Showing{" "}
+          <span className="text-gray-300 font-semibold">{movieCount}</span>
+          {" "}of{" "}
+          <span className="text-gray-300 font-semibold">
+            {totalResults.toLocaleString()}+
+          </span>{" "}
+          movies
+        </p>
+      )}
+
+      {hasMore && (
+        <button
+          onClick={onLoadMore}
+          disabled={isLoadingMore}
+          className="flex items-center gap-2 px-6 py-2.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed border border-gray-700 text-gray-200 rounded-lg font-medium text-sm transition-colors cursor-pointer"
+        >
+          {isLoadingMore ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+              Loading…
+            </>
+          ) : (
+            "Load More"
+          )}
+        </button>
+      )}
+    </div>
   );
 }
 

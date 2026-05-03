@@ -45,6 +45,5 @@ export function rankMovies(
   return movies
     .filter((m) => m.vote_count > 100)
     .map((m) => computeScore(m, selectedGenres))
-    .sort((a, b) => b.compositeScore - a.compositeScore)
-    .slice(0, 20);
+    .sort((a, b) => b.compositeScore - a.compositeScore);
 }

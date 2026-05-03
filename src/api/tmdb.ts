@@ -91,6 +91,7 @@ interface TmdbMovieDetails extends TmdbMovieResult {
 interface TmdbPage {
   results: TmdbMovieResult[];
   total_pages: number;
+  total_results: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -229,7 +230,13 @@ export interface DiscoverParams {
   page?: number;
 }
 
-export async function discoverMovies(params: DiscoverParams = {}): Promise<Movie[]> {
+export interface DiscoverResult {
+  movies: Movie[];
+  hasMore: boolean;
+  totalResults: number;
+}
+
+export async function discoverMovies(params: DiscoverParams = {}): Promise<DiscoverResult> {
   const genreMap = await fetchGenreMap();
 
   const queryParams: Record<string, string> = {
@@ -251,16 +258,22 @@ export async function discoverMovies(params: DiscoverParams = {}): Promise<Movie
     queryParams["vote_average.gte"] = String(params.minRating);
   }
 
-  // Fetch 3 pages to give the ranking algorithm enough material
+  // Fetch 3 TMDB pages per "load" to give the ranking algorithm enough material
   const pageCount = 3;
+  const batchStart = (params.page ?? 0) * pageCount; // 0-based TMDB page offset
   const pages = await Promise.all(
     Array.from({ length: pageCount }, (_, i) =>
       tmdbFetch<TmdbPage>("/discover/movie", {
         ...queryParams,
-        page: String((params.page ?? 0) * pageCount + i + 1),
+        page: String(batchStart + i + 1),
       })
     )
   );
+
+  const totalPages = pages[0].total_pages;
+  const totalResults = pages[0].total_results;
+  const lastFetchedPage = batchStart + pageCount;
+  const hasMore = lastFetchedPage < totalPages;
 
   const allResults = pages.flatMap((p) => p.results);
 
@@ -288,7 +301,7 @@ export async function discoverMovies(params: DiscoverParams = {}): Promise<Movie
     }
   }
 
-  return movies;
+  return { movies, hasMore, totalResults };
 }
 
 // ---------------------------------------------------------------------------
