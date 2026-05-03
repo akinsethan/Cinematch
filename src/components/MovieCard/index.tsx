@@ -19,12 +19,8 @@ interface Props {
 }
 
 export function MovieCard({
-  movie,
-  isInWatchlist,
-  onToggleWatchlist,
-  isSelected,
-  onToggleCompare,
-  compareDisabled,
+  movie, isInWatchlist, onToggleWatchlist,
+  isSelected, onToggleCompare, compareDisabled,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [trailerKey, setTrailerKey] = useState<string | null>(null);
@@ -37,31 +33,34 @@ export function MovieCard({
     setTrailerLoading(true);
     try {
       const key = await getTrailerKey(movie.id);
-      if (key) {
-        setTrailerKey(key);
-      } else {
-        setShowToast(true);
-      }
+      if (key) setTrailerKey(key);
+      else setShowToast(true);
     } finally {
       setTrailerLoading(false);
     }
   }, [movie.id, trailerLoading]);
 
-  const posterUrl = movie.poster_path
-    ? `${POSTER_BASE_URL}${movie.poster_path}`
-    : null;
+  const posterUrl = movie.poster_path ? `${POSTER_BASE_URL}${movie.poster_path}` : null;
 
   return (
     <article
-      className={`relative group bg-gray-900 rounded-xl border transition-all duration-200 overflow-hidden flex flex-col ${
-        isSelected
-          ? "border-violet-500 ring-2 ring-violet-500/40"
-          : "border-gray-800 hover:border-gray-700"
-      }`}
+      className="relative group flex flex-col rounded-xl overflow-hidden border transition-all duration-200"
+      style={{
+        background: "#1a1a1a",
+        borderColor: isSelected ? "#4a8b8c" : "#2a2a2a",
+        boxShadow: isSelected ? "0 0 0 1px #4a8b8c60" : "none",
+      }}
+      onMouseEnter={(e) => {
+        if (!isSelected) e.currentTarget.style.borderColor = "#d4a42a";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = isSelected ? "#4a8b8c" : "#2a2a2a";
+      }}
     >
       {/* Poster */}
       <div
-        className="relative aspect-[2/3] bg-gray-800 cursor-pointer overflow-hidden"
+        className="relative aspect-[2/3] overflow-hidden cursor-pointer"
+        style={{ background: "#111111" }}
         onClick={() => setExpanded((e) => !e)}
       >
         {posterUrl ? (
@@ -72,7 +71,7 @@ export function MovieCard({
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-600">
+          <div className="w-full h-full flex items-center justify-center" style={{ color: "#3a3028" }}>
             <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                 d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
@@ -81,14 +80,18 @@ export function MovieCard({
         )}
 
         {/* Hover overlay */}
-        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-          <span className="text-white text-sm font-medium">
-            {expanded ? "Hide details" : "Show details"}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.65)" }}>
+          <span className="text-xs font-display uppercase tracking-widest" style={{ color: "#f5f0e8" }}>
+            {expanded ? "Hide Details" : "Show Details"}
           </span>
         </div>
 
-        {/* Composite score badge */}
-        <div className="absolute top-2 left-2 bg-black/70 rounded-md px-2 py-0.5 text-xs font-bold text-violet-300">
+        {/* Composite score badge — gold */}
+        <div
+          className="absolute top-2 left-2 rounded px-2 py-0.5 text-xs font-display font-bold"
+          style={{ background: "#d4a42a", color: "#0a0a0a" }}
+        >
           {(movie.compositeScore * 100).toFixed(0)}
         </div>
 
@@ -96,10 +99,7 @@ export function MovieCard({
         <div className="absolute top-2 right-2">
           <WatchlistButton
             inWatchlist={isInWatchlist}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleWatchlist(movie);
-            }}
+            onClick={(e) => { e.stopPropagation(); onToggleWatchlist(movie); }}
           />
         </div>
       </div>
@@ -107,37 +107,37 @@ export function MovieCard({
       {/* Info */}
       <div className="p-3 flex flex-col gap-1.5 flex-1">
         <h3
-          className="text-sm font-semibold text-white leading-tight line-clamp-2 cursor-pointer"
+          className="font-display uppercase tracking-wide text-sm leading-tight line-clamp-2 cursor-pointer"
+          style={{ color: "#f5f0e8" }}
           onClick={() => setExpanded((e) => !e)}
         >
           {movie.title}
         </h3>
+
         <div className="flex items-center gap-2 flex-wrap">
           <RatingBadge rating={movie.rating} />
-          <span className="text-gray-500 text-xs">{movie.release_year}</span>
+          <span className="text-xs" style={{ color: "#6b6458" }}>{movie.release_year}</span>
           <MaturityBadge maturity={movie.maturity} />
         </div>
 
-        {/* Genres */}
         {movie.genres.length > 0 && (
           <div className="flex gap-1 flex-wrap mt-0.5">
             {movie.genres.slice(0, 3).map((g) => (
-              <span
-                key={g}
-                className="text-[10px] px-1.5 py-0.5 bg-gray-800 rounded text-gray-400"
-              >
+              <span key={g} className="text-[10px] px-1.5 py-0.5 rounded font-display uppercase tracking-wide"
+                style={{ background: "#111111", color: "#6b6458", border: "1px solid #2a2a2a" }}>
                 {g}
               </span>
             ))}
           </div>
         )}
 
-        {/* Bottom row: trailer + compare */}
+        {/* Bottom action row */}
         <div className="mt-auto pt-1.5 flex items-center justify-between gap-2">
           <button
             onClick={handleTrailerClick}
             disabled={trailerLoading}
-            className="flex items-center gap-1 text-xs font-medium text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            className="flex items-center gap-1 text-xs font-display uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed transition-opacity hover:opacity-80 cursor-pointer"
+            style={{ color: "#e06830" }}
           >
             {trailerLoading ? (
               <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -155,21 +155,19 @@ export function MovieCard({
           <button
             onClick={() => onToggleCompare(movie)}
             disabled={compareDisabled && !isSelected}
-            className={`text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-              isSelected ? "text-violet-400" : "text-gray-500 hover:text-gray-300"
-            }`}
+            className="text-xs font-display uppercase tracking-wide transition-opacity hover:opacity-80 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            style={{ color: isSelected ? "#4a8b8c" : "#6b6458" }}
           >
             {isSelected ? "✓ Comparing" : "+ Compare"}
           </button>
         </div>
       </div>
 
-      {/* Expandable breakdown — StreamingBadges only mounts here, so the
-          fetch is deferred until the user first clicks the card */}
+      {/* Expandable section */}
       {expanded && (
-        <div className="border-t border-gray-800 bg-gray-950">
+        <div className="border-t" style={{ background: "#111111", borderColor: "#2a2a2a" }}>
           {movie.overview && (
-            <p className="text-xs text-gray-400 leading-relaxed px-3 pt-3 pb-1 line-clamp-4">
+            <p className="text-xs leading-relaxed px-3 pt-3 pb-1 line-clamp-4" style={{ color: "#8a8070" }}>
               {movie.overview}
             </p>
           )}
@@ -178,21 +176,11 @@ export function MovieCard({
         </div>
       )}
 
-      {/* Trailer modal — portalled to document.body */}
       {trailerKey && (
-        <TrailerModal
-          trailerKey={trailerKey}
-          title={movie.title}
-          onClose={() => setTrailerKey(null)}
-        />
+        <TrailerModal trailerKey={trailerKey} title={movie.title} onClose={() => setTrailerKey(null)} />
       )}
-
-      {/* No-trailer toast — portalled to document.body */}
       {showToast && (
-        <Toast
-          message="No trailer available"
-          onDismiss={() => setShowToast(false)}
-        />
+        <Toast message="No trailer available" onDismiss={() => setShowToast(false)} />
       )}
     </article>
   );

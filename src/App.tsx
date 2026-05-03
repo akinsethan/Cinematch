@@ -27,16 +27,11 @@ function saveWatchlist(list: ScoredMovie[]) {
 
 type Tab = "discover" | "watchlist";
 
-// ---------------------------------------------------------------------------
-// Inner app (needs router context for useSearchParams)
-// ---------------------------------------------------------------------------
-
 function AppInner() {
   const [activeTab, setActiveTab] = useState<Tab>("discover");
   const [filters, setFilters] = useFilters();
   const { movies, isLoading, error } = useMovies(filters);
 
-  // Watchlist
   const [watchlist, setWatchlist] = useState<ScoredMovie[]>(loadWatchlist);
   const watchlistIds = new Set(watchlist.map((m) => m.id));
 
@@ -50,7 +45,6 @@ function AppInner() {
     });
   }, []);
 
-  // Compare (max 2) — searches the active pool so it works on both tabs
   const [compareIds, setCompareIds] = useState<number[]>([]);
 
   const toggleCompare = useCallback((movie: ScoredMovie) => {
@@ -61,7 +55,6 @@ function AppInner() {
     });
   }, []);
 
-  // Reset compare when switching tabs
   const switchTab = useCallback((tab: Tab) => {
     setActiveTab(tab);
     setCompareIds([]);
@@ -70,12 +63,9 @@ function AppInner() {
   const activePool = activeTab === "watchlist" ? watchlist : movies;
   const compareMovies =
     compareIds.length === 2
-      ? (compareIds
-          .map((id) => activePool.find((m) => m.id === id))
-          .filter(Boolean) as ScoredMovie[])
+      ? (compareIds.map((id) => activePool.find((m) => m.id === id)).filter(Boolean) as ScoredMovie[])
       : null;
 
-  // "Surprise Me" — random pick from top 10 discover results
   const [surpriseMovie, setSurpriseMovie] = useState<ScoredMovie | null>(null);
 
   const surpriseMe = useCallback(() => {
@@ -84,49 +74,59 @@ function AppInner() {
     setSurpriseMovie(pool[Math.floor(Math.random() * pool.length)]);
   }, [movies]);
 
-  // Global Escape closes modals
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setSurpriseMovie(null);
-        setCompareIds([]);
-      }
+      if (e.key === "Escape") { setSurpriseMovie(null); setCompareIds([]); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      {/* ------------------------------------------------------------------ */}
-      {/* Header                                                               */}
-      {/* ------------------------------------------------------------------ */}
-      <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-30">
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+    <div className="min-h-screen bg-cm-bg text-cm-cream">
+
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-30 bg-cm-bg/95 backdrop-blur-sm border-b border-cm-border">
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+
+          {/* Logo */}
           <div className="flex items-center gap-3">
-            <span className="text-2xl">🎬</span>
+            <span className="text-2xl leading-none">🎬</span>
             <div>
-              <h1 className="text-xl font-black text-white tracking-tight leading-none">
-                CineMatch
+              <h1 className="font-display text-2xl uppercase leading-none tracking-wider">
+                <span style={{ color: "#4a8b8c" }}>CINE</span>
+                <span
+                  style={{
+                    background: "linear-gradient(to right, #e06830, #b5336a)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                  }}
+                >
+                  MATCH
+                </span>
               </h1>
-              <p className="text-xs text-gray-500 mt-0.5">Powered by TMDB</p>
+              <p className="text-[10px] text-cm-muted tracking-widest uppercase mt-0.5">
+                Powered by TMDB
+              </p>
             </div>
           </div>
 
+          {/* Header actions */}
           <div className="flex items-center gap-3">
             {activeTab === "discover" && !isLoading && movies.length > 0 && (
               <button
                 onClick={surpriseMe}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-lg font-semibold text-sm transition-all shadow-lg cursor-pointer"
+                className="flex items-center gap-2 px-4 py-2 font-display uppercase tracking-wider text-sm text-cm-bg rounded cursor-pointer transition-opacity hover:opacity-90"
+                style={{ background: "linear-gradient(to right, #e06830, #c0392b)" }}
               >
-                <span>🎲</span>
-                Surprise Me
+                🎲 Surprise Me
               </button>
             )}
             {compareIds.length > 0 && (
               <button
                 onClick={() => setCompareIds([])}
-                className="text-xs text-gray-400 hover:text-gray-200 transition-colors cursor-pointer"
+                className="text-xs text-cm-muted hover:text-cm-cream transition-colors cursor-pointer tracking-wide"
               >
                 Clear compare ({compareIds.length}/2)
               </button>
@@ -134,12 +134,12 @@ function AppInner() {
           </div>
         </div>
 
+        {/* Rainbow stripe */}
+        <div className="brand-stripe" />
+
         {/* Tab bar */}
-        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 flex gap-1 border-t border-gray-800/60">
-          <TabButton
-            active={activeTab === "discover"}
-            onClick={() => switchTab("discover")}
-          >
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 flex">
+          <TabButton active={activeTab === "discover"} onClick={() => switchTab("discover")}>
             Discover
           </TabButton>
           <TabButton
@@ -152,9 +152,7 @@ function AppInner() {
         </div>
       </header>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Discover tab                                                         */}
-      {/* ------------------------------------------------------------------ */}
+      {/* ── Discover tab ── */}
       {activeTab === "discover" && (
         <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 flex flex-col lg:flex-row gap-6">
           <FilterPanel
@@ -166,13 +164,12 @@ function AppInner() {
 
           <div className="flex-1 min-w-0">
             {error && (
-              <div className="mb-4 p-4 bg-red-900/30 border border-red-800 rounded-xl text-red-300 text-sm">
+              <div className="mb-4 p-4 rounded-xl text-sm border"
+                style={{ background: "#1a0a0a", borderColor: "#c0392b", color: "#f5a0a0" }}>
                 <strong>Error:</strong> {error}
                 {!import.meta.env.VITE_TMDB_API_KEY && (
-                  <p className="mt-1 text-red-400">
-                    No API key found. Set{" "}
-                    <code className="bg-red-900/50 px-1 rounded">VITE_TMDB_API_KEY</code>{" "}
-                    in your <code className="bg-red-900/50 px-1 rounded">.env</code> file.
+                  <p className="mt-1" style={{ color: "#e06830" }}>
+                    Set <code className="px-1 rounded" style={{ background: "#2a1010" }}>VITE_TMDB_API_KEY</code> in your .env file.
                   </p>
                 )}
               </div>
@@ -185,7 +182,8 @@ function AppInner() {
             ) : (
               <>
                 {compareIds.length === 1 && (
-                  <div className="mb-4 p-3 bg-violet-900/20 border border-violet-800/50 rounded-xl text-violet-300 text-sm">
+                  <div className="mb-4 p-3 rounded-xl text-sm border"
+                    style={{ background: "#0a1a1a", borderColor: "#4a8b8c", color: "#7ac5c6" }}>
                     Select one more movie to compare side by side.
                   </div>
                 )}
@@ -202,9 +200,7 @@ function AppInner() {
         </main>
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Watchlist tab                                                        */}
-      {/* ------------------------------------------------------------------ */}
+      {/* ── Watchlist tab ── */}
       {activeTab === "watchlist" && (
         <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6">
           {watchlist.length === 0 ? (
@@ -212,7 +208,8 @@ function AppInner() {
           ) : (
             <>
               {compareIds.length === 1 && (
-                <div className="mb-4 p-3 bg-violet-900/20 border border-violet-800/50 rounded-xl text-violet-300 text-sm">
+                <div className="mb-4 p-3 rounded-xl text-sm border"
+                  style={{ background: "#0a1a1a", borderColor: "#4a8b8c", color: "#7ac5c6" }}>
                   Select one more movie to compare side by side.
                 </div>
               )}
@@ -239,21 +236,21 @@ function AppInner() {
       {/* Surprise Me modal */}
       {surpriseMovie && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={() => setSurpriseMovie(null)}
         >
           <div
-            className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm overflow-hidden"
+            className="w-full max-w-sm overflow-hidden rounded-2xl border"
+            style={{ background: "#1a1a1a", borderColor: "#3a3028" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 border-b border-gray-800 flex items-center justify-between">
-              <h2 className="text-white font-bold">🎲 Your Pick</h2>
-              <button
-                onClick={() => setSurpriseMovie(null)}
-                className="text-gray-400 hover:text-white cursor-pointer"
-              >
-                ✕
-              </button>
+            {/* stripe top */}
+            <div className="brand-stripe" />
+            <div className="p-4 border-b flex items-center justify-between" style={{ borderColor: "#2a2a2a" }}>
+              <h2 className="font-display uppercase tracking-wider text-cm-gold">
+                🎲 Your Pick
+              </h2>
+              <button onClick={() => setSurpriseMovie(null)} className="text-cm-muted hover:text-cm-cream cursor-pointer">✕</button>
             </div>
             {surpriseMovie.poster_path && (
               <img
@@ -263,22 +260,21 @@ function AppInner() {
               />
             )}
             <div className="p-5 space-y-2">
-              <h3 className="text-xl font-bold text-white">{surpriseMovie.title}</h3>
-              <p className="text-sm text-gray-400">
-                {surpriseMovie.release_year} · ★ {surpriseMovie.rating.toFixed(1)} ·{" "}
-                {surpriseMovie.maturity}
+              <h3 className="font-display text-xl uppercase tracking-wide text-cm-cream">
+                {surpriseMovie.title}
+              </h3>
+              <p className="text-sm text-cm-muted">
+                {surpriseMovie.release_year} · ★ {surpriseMovie.rating.toFixed(1)} · {surpriseMovie.maturity}
               </p>
-              <p className="text-sm text-gray-300 leading-relaxed line-clamp-4">
+              <p className="text-sm leading-relaxed line-clamp-4" style={{ color: "#b5a898" }}>
                 {surpriseMovie.overview}
               </p>
               <button
-                onClick={() => {
-                  setSurpriseMovie(null);
-                  surpriseMe();
-                }}
-                className="w-full mt-3 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-semibold transition-colors cursor-pointer"
+                onClick={() => { setSurpriseMovie(null); surpriseMe(); }}
+                className="w-full mt-3 px-4 py-2 font-display uppercase tracking-wider text-sm text-cm-bg rounded transition-opacity hover:opacity-90 cursor-pointer"
+                style={{ background: "linear-gradient(to right, #e06830, #b5336a)" }}
               >
-                Try another
+                Try Another
               </button>
             </div>
           </div>
@@ -288,15 +284,9 @@ function AppInner() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Small presentational helpers
-// ---------------------------------------------------------------------------
-
+// ── Tab button ──
 function TabButton({
-  active,
-  onClick,
-  badge,
-  children,
+  active, onClick, badge, children,
 }: {
   active: boolean;
   onClick: () => void;
@@ -306,15 +296,18 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`relative flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
-        active
-          ? "border-violet-500 text-white"
-          : "border-transparent text-gray-400 hover:text-gray-200"
-      }`}
+      className="relative flex items-center gap-2 px-4 py-3 font-display uppercase tracking-wider text-sm transition-colors cursor-pointer border-b-2"
+      style={{
+        borderBottomColor: active ? "#d4a42a" : "transparent",
+        color: active ? "#d4a42a" : "#6b6458",
+      }}
     >
       {children}
       {badge !== undefined && (
-        <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-violet-600 text-white text-[10px] font-bold leading-none">
+        <span
+          className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-[10px] font-bold leading-none text-cm-bg"
+          style={{ background: "#d4a42a" }}
+        >
           {badge}
         </span>
       )}
@@ -322,19 +315,23 @@ function TabButton({
   );
 }
 
+// ── Watchlist empty state ──
 function WatchlistEmptyState({ onDiscover }: { onDiscover: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
       <div className="text-6xl">🔖</div>
-      <h3 className="text-xl font-semibold text-white">No movies saved yet</h3>
-      <p className="text-gray-400 text-sm max-w-sm">
+      <h3 className="font-display text-2xl uppercase tracking-wider text-cm-cream">
+        No Movies Saved Yet
+      </h3>
+      <p className="text-cm-muted text-sm max-w-sm">
         Click the bookmark icon on any movie card to save it here for later.
       </p>
       <button
         onClick={onDiscover}
-        className="mt-2 px-5 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-medium transition-colors cursor-pointer"
+        className="mt-2 px-6 py-2 font-display uppercase tracking-wider text-sm text-cm-bg rounded cursor-pointer transition-opacity hover:opacity-90"
+        style={{ background: "#d4a42a" }}
       >
-        Browse movies
+        Browse Movies
       </button>
     </div>
   );

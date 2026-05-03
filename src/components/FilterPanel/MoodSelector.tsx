@@ -6,15 +6,16 @@ interface Mood {
   label: string;
   genres: Genre[];
   maturity: MaturityFilter;
+  color: string;
 }
 
 const MOODS: Mood[] = [
-  { id: "funny",      emoji: "😂", label: "Funny",        genres: ["Comedy"],                  maturity: "All"    },
-  { id: "scary",      emoji: "😱", label: "Scary",        genres: ["Horror", "Thriller"],       maturity: "All"    },
-  { id: "emotional",  emoji: "😢", label: "Emotional",    genres: ["Drama", "Romance"],         maturity: "All"    },
-  { id: "epic",       emoji: "🚀", label: "Epic",         genres: ["Action", "Sci-Fi"],         maturity: "All"    },
-  { id: "interesting",emoji: "🧠", label: "Interesting",  genres: ["Documentary"],              maturity: "All"    },
-  { id: "family",     emoji: "🧸", label: "Family Night", genres: ["Animation"],                maturity: "Family" },
+  { id: "funny",       emoji: "😂", label: "Funny",        genres: ["Comedy"],             maturity: "All",    color: "#d4a42a" },
+  { id: "scary",       emoji: "😱", label: "Scary",        genres: ["Horror", "Thriller"], maturity: "All",    color: "#c0392b" },
+  { id: "emotional",   emoji: "😢", label: "Emotional",    genres: ["Drama", "Romance"],   maturity: "All",    color: "#b5336a" },
+  { id: "epic",        emoji: "🚀", label: "Epic",         genres: ["Action", "Sci-Fi"],   maturity: "All",    color: "#e06830" },
+  { id: "interesting", emoji: "🧠", label: "Interesting",  genres: ["Documentary"],        maturity: "All",    color: "#4a8b8c" },
+  { id: "family",      emoji: "🧸", label: "Family Night", genres: ["Animation"],          maturity: "Family", color: "#4a8b8c" },
 ];
 
 function isMoodActive(mood: Mood, filters: Filters): boolean {
@@ -33,7 +34,6 @@ export function MoodSelector({ filters, onChange }: Props) {
 
   function handleClick(mood: Mood) {
     if (activeMood?.id === mood.id) {
-      // Deselect: clear only the fields this mood had set
       onChange({ genres: [], maturity: "All" });
     } else {
       onChange({ genres: mood.genres, maturity: mood.maturity });
@@ -42,8 +42,8 @@ export function MoodSelector({ filters, onChange }: Props) {
 
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
-        I&apos;m in the mood for…
+      <p className="font-display text-xs uppercase tracking-widest mb-3" style={{ color: "#6b6458" }}>
+        I&apos;m In The Mood For…
       </p>
       <div className="grid grid-cols-3 gap-2">
         {MOODS.map((mood) => {
@@ -52,17 +52,17 @@ export function MoodSelector({ filters, onChange }: Props) {
             <button
               key={mood.id}
               onClick={() => handleClick(mood)}
-              className={`flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl border text-center transition-all duration-150 cursor-pointer ${
-                active
-                  ? "bg-violet-600/20 border-violet-500 ring-1 ring-violet-500/50"
-                  : "bg-gray-800/60 border-gray-700 hover:border-gray-500 hover:bg-gray-800"
-              }`}
+              className="flex flex-col items-center gap-1 py-2.5 px-1 rounded-xl border text-center transition-all duration-150 cursor-pointer"
+              style={{
+                background: active ? `${mood.color}18` : "#1a1a1a",
+                borderColor: active ? mood.color : "#2a2a2a",
+                boxShadow: active ? `0 0 0 1px ${mood.color}60` : "none",
+              }}
             >
               <span className="text-2xl leading-none">{mood.emoji}</span>
               <span
-                className={`text-[11px] font-medium leading-tight ${
-                  active ? "text-violet-300" : "text-gray-400"
-                }`}
+                className="text-[10px] font-display uppercase tracking-wide leading-tight"
+                style={{ color: active ? mood.color : "#6b6458" }}
               >
                 {mood.label}
               </span>

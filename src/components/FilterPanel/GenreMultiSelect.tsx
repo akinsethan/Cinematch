@@ -8,16 +8,14 @@ interface Props {
 
 export function GenreMultiSelect({ selected, onChange }: Props) {
   const toggle = (genre: Genre) => {
-    if (selected.includes(genre)) {
-      onChange(selected.filter((g) => g !== genre));
-    } else {
-      onChange([...selected, genre]);
-    }
+    onChange(selected.includes(genre)
+      ? selected.filter((g) => g !== genre)
+      : [...selected, genre]);
   };
 
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">
+      <p className="font-display text-xs uppercase tracking-widest mb-2" style={{ color: "#6b6458" }}>
         Genres
       </p>
       <div className="flex flex-wrap gap-2">
@@ -27,11 +25,12 @@ export function GenreMultiSelect({ selected, onChange }: Props) {
             <button
               key={genre}
               onClick={() => toggle(genre)}
-              className={`px-3 py-1 rounded-full text-sm font-medium border transition-all cursor-pointer ${
-                active
-                  ? "bg-violet-600 border-violet-500 text-white"
-                  : "bg-gray-800 border-gray-700 text-gray-300 hover:border-violet-500 hover:text-violet-300"
-              }`}
+              className="px-3 py-1 rounded-full text-xs font-display uppercase tracking-wide border transition-all cursor-pointer"
+              style={{
+                background: active ? "#4a8b8c" : "#1a1a1a",
+                borderColor: active ? "#4a8b8c" : "#2a2a2a",
+                color: active ? "#0a0a0a" : "#6b6458",
+              }}
             >
               {genre}
             </button>

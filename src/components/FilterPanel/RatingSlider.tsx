@@ -4,11 +4,12 @@ interface Props {
 }
 
 export function RatingSlider({ value, onChange }: Props) {
+  const pct = (value / 9) * 100;
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">
+      <p className="font-display text-xs uppercase tracking-widest mb-2" style={{ color: "#6b6458" }}>
         Min Rating{" "}
-        <span className="text-violet-400 font-bold normal-case tracking-normal">
+        <span className="normal-case tracking-normal font-bold" style={{ color: "#d4a42a" }}>
           {value > 0 ? `≥ ${value.toFixed(1)}` : "Any"}
         </span>
       </p>
@@ -19,10 +20,12 @@ export function RatingSlider({ value, onChange }: Props) {
         step={0.5}
         value={value}
         onChange={(e) => onChange(parseFloat(e.target.value))}
-        className="w-full h-2 rounded-full accent-violet-500 cursor-pointer"
-        style={{ background: `linear-gradient(to right, #7c3aed ${(value / 9) * 100}%, #374151 ${(value / 9) * 100}%)` }}
+        className="w-full h-1.5 rounded-full cursor-pointer"
+        style={{
+          background: `linear-gradient(to right, #d4a42a ${pct}%, #2a2a2a ${pct}%)`,
+        }}
       />
-      <div className="flex justify-between text-xs text-gray-500 mt-1">
+      <div className="flex justify-between text-[10px] mt-1" style={{ color: "#3a3530" }}>
         <span>0</span>
         <span>4.5</span>
         <span>9</span>

@@ -10,16 +10,21 @@ interface Props {
 export function SortSelect({ value, onChange }: Props) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">
+      <p className="font-display text-xs uppercase tracking-widest mb-2" style={{ color: "#6b6458" }}>
         Sort By
       </p>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as SortBy)}
-        className="bg-gray-800 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer"
+        className="text-sm rounded-lg px-3 py-2 w-full focus:outline-none cursor-pointer"
+        style={{
+          background: "#1a1a1a",
+          border: "1px solid #2a2a2a",
+          color: "#f5f0e8",
+        }}
       >
         {OPTIONS.map((opt) => (
-          <option key={opt} value={opt}>
+          <option key={opt} value={opt} style={{ background: "#1a1a1a" }}>
             {opt}
           </option>
         ))}
