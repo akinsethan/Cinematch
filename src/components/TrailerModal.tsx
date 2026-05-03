@@ -27,11 +27,12 @@ export function TrailerModal({ trailerKey, title, onClose }: Props) {
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-white font-semibold truncate pr-4">{title}</h2>
+          <h2 className="font-display uppercase tracking-wide text-sm truncate pr-4" style={{ color: "#f5f0e8" }}>{title}</h2>
           <button
             onClick={onClose}
             aria-label="Close trailer"
-            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors cursor-pointer"
+            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full transition-opacity hover:opacity-70 cursor-pointer"
+            style={{ background: "#2a2a2a", color: "#6b6458" }}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
