@@ -301,6 +301,7 @@ export interface WatchProvider {
   logo_path: string;
 }
 
+// Only flatrate = subscription streaming (not rent/buy)
 export async function getWatchProviders(
   movieId: number
 ): Promise<WatchProvider[]> {
@@ -311,18 +312,13 @@ export async function getWatchProviders(
     const data = await tmdbFetch<{
       results: Record<
         string,
-        { flatrate?: WatchProvider[]; rent?: WatchProvider[]; buy?: WatchProvider[] }
+        { flatrate?: WatchProvider[]; link?: string }
       >;
     }>(`/movie/${movieId}/watch/providers`);
 
-    const us = data.results?.US;
-    const providers: WatchProvider[] = [
-      ...(us?.flatrate ?? []),
-      ...(us?.rent ?? []),
-      ...(us?.buy ?? []),
-    ];
+    const flatrate = data.results?.US?.flatrate ?? [];
     const seen = new Set<number>();
-    const unique = providers.filter((p) => {
+    const unique = flatrate.filter((p) => {
       if (seen.has(p.provider_id)) return false;
       seen.add(p.provider_id);
       return true;

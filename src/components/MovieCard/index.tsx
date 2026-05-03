@@ -4,6 +4,7 @@ import { POSTER_BASE_URL } from "../../api/tmdb";
 import { MaturityBadge } from "./MaturityBadge";
 import { RatingBadge } from "./RatingBadge";
 import { ScoreBreakdown } from "./ScoreBreakdown";
+import { StreamingBadges } from "./StreamingBadges";
 import { WatchlistButton } from "../WatchlistButton";
 
 interface Props {
@@ -121,15 +122,16 @@ export function MovieCard({
         </button>
       </div>
 
-      {/* Expandable breakdown */}
+      {/* Expandable breakdown — StreamingBadges only mounts here, so the
+          fetch is deferred until the user first clicks the card */}
       {expanded && (
         <div className="border-t border-gray-800 bg-gray-950">
-          {/* Overview */}
           {movie.overview && (
             <p className="text-xs text-gray-400 leading-relaxed px-3 pt-3 pb-1 line-clamp-4">
               {movie.overview}
             </p>
           )}
+          <StreamingBadges movieId={movie.id} />
           <ScoreBreakdown movie={movie} />
         </div>
       )}
