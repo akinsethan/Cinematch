@@ -7,7 +7,6 @@ import { MovieGrid } from "./components/MovieGrid";
 import { LoadingSkeleton } from "./components/LoadingSkeleton";
 import { EmptyState } from "./components/EmptyState";
 import { ComparePanel } from "./components/ComparePanel";
-import { WatchlistPanel } from "./components/WatchlistPanel";
 import type { ScoredMovie } from "./types/movie";
 import { DEFAULT_FILTERS } from "./types/movie";
 
@@ -26,11 +25,14 @@ function saveWatchlist(list: ScoredMovie[]) {
   localStorage.setItem(WATCHLIST_KEY, JSON.stringify(list));
 }
 
+type Tab = "discover" | "watchlist";
+
 // ---------------------------------------------------------------------------
 // Inner app (needs router context for useSearchParams)
 // ---------------------------------------------------------------------------
 
 function AppInner() {
+  const [activeTab, setActiveTab] = useState<Tab>("discover");
   const [filters, setFilters] = useFilters();
   const { movies, isLoading, error } = useMovies(filters);
 
@@ -48,15 +50,7 @@ function AppInner() {
     });
   }, []);
 
-  const removeFromWatchlist = useCallback((id: number) => {
-    setWatchlist((prev) => {
-      const next = prev.filter((m) => m.id !== id);
-      saveWatchlist(next);
-      return next;
-    });
-  }, []);
-
-  // Compare (max 2)
+  // Compare (max 2) — searches the active pool so it works on both tabs
   const [compareIds, setCompareIds] = useState<number[]>([]);
 
   const toggleCompare = useCallback((movie: ScoredMovie) => {
@@ -67,22 +61,30 @@ function AppInner() {
     });
   }, []);
 
+  // Reset compare when switching tabs
+  const switchTab = useCallback((tab: Tab) => {
+    setActiveTab(tab);
+    setCompareIds([]);
+  }, []);
+
+  const activePool = activeTab === "watchlist" ? watchlist : movies;
   const compareMovies =
     compareIds.length === 2
-      ? (compareIds.map((id) => movies.find((m) => m.id === id)).filter(Boolean) as ScoredMovie[])
+      ? (compareIds
+          .map((id) => activePool.find((m) => m.id === id))
+          .filter(Boolean) as ScoredMovie[])
       : null;
 
-  // "Surprise Me" — random pick from top 10
+  // "Surprise Me" — random pick from top 10 discover results
   const [surpriseMovie, setSurpriseMovie] = useState<ScoredMovie | null>(null);
 
   const surpriseMe = useCallback(() => {
     if (movies.length === 0) return;
     const pool = movies.slice(0, Math.min(10, movies.length));
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    setSurpriseMovie(pick);
+    setSurpriseMovie(pool[Math.floor(Math.random() * pool.length)]);
   }, [movies]);
 
-  // Close surprise overlay on Escape
+  // Global Escape closes modals
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -96,7 +98,9 @@ function AppInner() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      {/* Header */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Header                                                               */}
+      {/* ------------------------------------------------------------------ */}
       <header className="border-b border-gray-800 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-30">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -110,7 +114,7 @@ function AppInner() {
           </div>
 
           <div className="flex items-center gap-3">
-            {!isLoading && movies.length > 0 && (
+            {activeTab === "discover" && !isLoading && movies.length > 0 && (
               <button
                 onClick={surpriseMe}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white rounded-lg font-semibold text-sm transition-all shadow-lg cursor-pointer"
@@ -129,45 +133,91 @@ function AppInner() {
             )}
           </div>
         </div>
+
+        {/* Tab bar */}
+        <div className="max-w-screen-xl mx-auto px-4 sm:px-6 flex gap-1 border-t border-gray-800/60">
+          <TabButton
+            active={activeTab === "discover"}
+            onClick={() => switchTab("discover")}
+          >
+            Discover
+          </TabButton>
+          <TabButton
+            active={activeTab === "watchlist"}
+            onClick={() => switchTab("watchlist")}
+            badge={watchlist.length > 0 ? watchlist.length : undefined}
+          >
+            🔖 My Watchlist
+          </TabButton>
+        </div>
       </header>
 
-      {/* Main layout */}
-      <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 flex flex-col lg:flex-row gap-6">
-        {/* Filter sidebar */}
-        <FilterPanel
-          filters={filters}
-          onChange={setFilters}
-          resultCount={movies.length}
-          isLoading={isLoading}
-        />
+      {/* ------------------------------------------------------------------ */}
+      {/* Discover tab                                                         */}
+      {/* ------------------------------------------------------------------ */}
+      {activeTab === "discover" && (
+        <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 flex flex-col lg:flex-row gap-6">
+          <FilterPanel
+            filters={filters}
+            onChange={setFilters}
+            resultCount={movies.length}
+            isLoading={isLoading}
+          />
 
-        {/* Content area */}
-        <div className="flex-1 min-w-0">
-          {error && (
-            <div className="mb-4 p-4 bg-red-900/30 border border-red-800 rounded-xl text-red-300 text-sm">
-              <strong>Error:</strong> {error}
-              {!import.meta.env.VITE_TMDB_API_KEY && (
-                <p className="mt-1 text-red-400">
-                  No API key found. Set <code className="bg-red-900/50 px-1 rounded">VITE_TMDB_API_KEY</code> in your <code className="bg-red-900/50 px-1 rounded">.env</code> file.
-                </p>
-              )}
-            </div>
-          )}
+          <div className="flex-1 min-w-0">
+            {error && (
+              <div className="mb-4 p-4 bg-red-900/30 border border-red-800 rounded-xl text-red-300 text-sm">
+                <strong>Error:</strong> {error}
+                {!import.meta.env.VITE_TMDB_API_KEY && (
+                  <p className="mt-1 text-red-400">
+                    No API key found. Set{" "}
+                    <code className="bg-red-900/50 px-1 rounded">VITE_TMDB_API_KEY</code>{" "}
+                    in your <code className="bg-red-900/50 px-1 rounded">.env</code> file.
+                  </p>
+                )}
+              </div>
+            )}
 
-          {isLoading ? (
-            <LoadingSkeleton count={15} />
-          ) : movies.length === 0 ? (
-            <EmptyState onReset={() => setFilters(DEFAULT_FILTERS)} />
+            {isLoading ? (
+              <LoadingSkeleton count={15} />
+            ) : movies.length === 0 ? (
+              <EmptyState onReset={() => setFilters(DEFAULT_FILTERS)} />
+            ) : (
+              <>
+                {compareIds.length === 1 && (
+                  <div className="mb-4 p-3 bg-violet-900/20 border border-violet-800/50 rounded-xl text-violet-300 text-sm">
+                    Select one more movie to compare side by side.
+                  </div>
+                )}
+                <MovieGrid
+                  movies={movies}
+                  watchlist={watchlistIds}
+                  onToggleWatchlist={toggleWatchlist}
+                  compareIds={compareIds}
+                  onToggleCompare={toggleCompare}
+                />
+              </>
+            )}
+          </div>
+        </main>
+      )}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* Watchlist tab                                                        */}
+      {/* ------------------------------------------------------------------ */}
+      {activeTab === "watchlist" && (
+        <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6">
+          {watchlist.length === 0 ? (
+            <WatchlistEmptyState onDiscover={() => switchTab("discover")} />
           ) : (
             <>
-              {/* Active compare hint */}
               {compareIds.length === 1 && (
                 <div className="mb-4 p-3 bg-violet-900/20 border border-violet-800/50 rounded-xl text-violet-300 text-sm">
                   Select one more movie to compare side by side.
                 </div>
               )}
               <MovieGrid
-                movies={movies}
+                movies={watchlist}
                 watchlist={watchlistIds}
                 onToggleWatchlist={toggleWatchlist}
                 compareIds={compareIds}
@@ -175,11 +225,8 @@ function AppInner() {
               />
             </>
           )}
-        </div>
-      </main>
-
-      {/* Watchlist drawer */}
-      <WatchlistPanel watchlist={watchlist} onRemove={removeFromWatchlist} />
+        </main>
+      )}
 
       {/* Compare modal */}
       {compareMovies && compareMovies.length === 2 && (
@@ -237,6 +284,58 @@ function AppInner() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Small presentational helpers
+// ---------------------------------------------------------------------------
+
+function TabButton({
+  active,
+  onClick,
+  badge,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  badge?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 transition-colors cursor-pointer ${
+        active
+          ? "border-violet-500 text-white"
+          : "border-transparent text-gray-400 hover:text-gray-200"
+      }`}
+    >
+      {children}
+      {badge !== undefined && (
+        <span className="inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-violet-600 text-white text-[10px] font-bold leading-none">
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+}
+
+function WatchlistEmptyState({ onDiscover }: { onDiscover: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 text-center gap-4">
+      <div className="text-6xl">🔖</div>
+      <h3 className="text-xl font-semibold text-white">No movies saved yet</h3>
+      <p className="text-gray-400 text-sm max-w-sm">
+        Click the bookmark icon on any movie card to save it here for later.
+      </p>
+      <button
+        onClick={onDiscover}
+        className="mt-2 px-5 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-lg font-medium transition-colors cursor-pointer"
+      >
+        Browse movies
+      </button>
     </div>
   );
 }
